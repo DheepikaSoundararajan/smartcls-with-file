@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Classroom - {{ department }}</title>
+    <style>
+        body {
+            display: flex;
+            font-family: Arial, sans-serif;
+        }
+        .sidebar {
+            width: 30%;
+            overflow-y: auto;
+            padding: 20px;
+            background-color: #f1f1f1;
+        }
+        .content {
+            width: 70%;
+            padding: 20px;
+        }
+        .pdf-list li {
+            cursor: pointer;
+            padding: 5px;
+            border-bottom: 1px solid #ccc;
+        }
+        .pdf-list li:hover {
+            background-color: #ddd;
+        }
+        .selected {
+            font-weight: bold;
+            color: blue;
+        }
+        textarea {
+            width: 100%;
+            height: 100px;
+            margin-top: 10px;
+            padding: 5px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .response-box {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            background-color: #f9f9f9;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar with available PDFs -->
+    <div class="sidebar">
+        <h3>Available PDFs</h3>
+        <ul class="pdf-list">
+            {% for file in pdf_files %}
+                <li onclick="selectPDF('{{ file }}')" id="pdf-{{ loop.index }}">{{ file }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+
+    <!-- Main content -->
+    <div class="content">
+        <h3>Upload New PDF</h3>
+        <input type="file" id="pdfUpload">
+        <button onclick="uploadPDF()">Upload</button>
+
+        <h3>Enter Your Prompt</h3>
+        <textarea id="promptInput" placeholder="Type your question here..."></textarea>
+        <button onclick="submitPrompt()">Submit</button>
+
+        <h3>AI Response</h3>
+        <div id="response" class="response-box">Response will appear here...</div>
+    </div>
+
+    <script>
+        let selectedPDF = localStorage.getItem("selectedPDF") || "";
+
+        function selectPDF(fileName) {
+            selectedPDF = fileName;
+            localStorage.setItem("selectedPDF", fileName);
+            
+            // Highlight the selected file
+            document.querySelectorAll(".pdf-list li").forEach(li => li.classList.remove("selected"));
+            document.querySelector(`#pdf-${selectedPDF}`)?.classList.add("selected");
+
+            alert("Selected PDF: " + fileName);
+        }
+
+        function uploadPDF() {
+            const fileInput = document.getElementById("pdfUpload").files[0];
+            if (!fileInput) {
+                alert("Please select a file to upload.");
+                return;
+            }
+
+            let formData = new FormData();
+            formData.append("department", "{{ department }}");
+            formData.append("pdf_file", fileInput);
+
+            fetch("/upload_pdf", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                location.reload(); // Refresh page to show uploaded file
+            })
+            .catch(error => console.error("Error uploading file:", error));
+        }
+
+        function submitPrompt() {
+            const promptText = document.getElementById("promptInput").value;
+
+            if (!selectedPDF) {
+                alert("Please select a PDF first.");
+                return;
+            }
+
+            fetch("/process_pdf", {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                body: `department={{ department }}&pdf_filename=${selectedPDF}&prompt=${encodeURIComponent(promptText)}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("response").innerHTML = data.response;
+            })
+            .catch(error => console.error("Error processing prompt:", error));
+        }
+
+        // Restore last selected PDF
+        window.onload = function () {
+            selectedPDF = localStorage.getItem("selectedPDF") || "";
+            if (selectedPDF) {
+                alert("Restored selected PDF: " + selectedPDF);
+            }
+        };
+    </script>
+
+</body>
+</html>
